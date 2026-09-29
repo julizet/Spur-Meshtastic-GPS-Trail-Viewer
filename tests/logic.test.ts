@@ -7,6 +7,8 @@ import { suggestSegments, split, remove, addRange, mergeRange } from "../lib/seg
 import { computeStats, rangeSummary } from "../lib/stats";
 import { buildSnapshot, isRouteData } from "../lib/snapshot";
 import { fmtDuration, fmtKm, paceBetween } from "../lib/geo";
+import { colorFor, colorScaleFor, FADED } from "../lib/colors";
+import type { Point, Segment } from "../lib/types";
 
 const text = readFileSync(new URL("../public/beispiel.txt", import.meta.url), "utf8");
 const points = parseExport(text);
@@ -29,6 +31,51 @@ test("calculates pace between recorded markers", () => {
   assert.ok(pace != null && pace > 13 && pace < 14);
   assert.equal(paceBetween(start, { ...start, t: null }), null);
   assert.equal(paceBetween(start, { ...start, t: 60_000 }), null);
+});
+
+test("derives GPS and elevation scales from active valid points", () => {
+  const sample: Point[] = [
+    { i: 0, lat: 47, lon: 8, alt: 700, sats: 4, speed: 1, t: 0 },
+    { i: 1, lat: 47.01, lon: 8, alt: 900, sats: 12, speed: 1, t: 60_000 },
+    { i: 2, lat: 47.02, lon: 8, alt: 5000, sats: 30, speed: 1, t: 120_000 },
+    { i: 3, lat: 47.03, lon: 8, alt: 100, sats: 1, speed: 1, t: 180_000 },
+  ];
+  const segments: Segment[] = [
+    { id: "on", a: 0, b: 1, name: "Active", kind: "wandern", on: true },
+    { id: "off", a: 1, b: 3, name: "Inactive", kind: "fahrt", on: false },
+  ];
+  assert.deepEqual(colorScaleFor("gps", sample, { 1: "manuell" }, segments), {
+    colors: ["#ff5100", "#fad830", "#79db09"], min: 4, max: 4, minLabel: "4", maxLabel: "4 Satelliten",
+  });
+  assert.deepEqual(colorScaleFor("hoehe", sample, {}, segments), {
+    colors: ["#7b9a74", "#c9a13b", "#7a3b2e"], min: 700, max: 900, minLabel: "700 m", maxLabel: "900 m",
+  });
+});
+
+test("maps GPS colors across the actual range using endpoint averages", () => {
+  const point: Point = { i: 0, lat: 47, lon: 8, alt: 500, sats: 4, speed: 1, t: 0 };
+  const scale = colorScaleFor("gps", [{ ...point, sats: 4 }, { ...point, i: 1, sats: 18 }], {}, [
+    { id: "on", a: 0, b: 1, name: "Active", kind: "wandern", on: true },
+  ])!;
+  assert.equal(colorFor("gps", point, point, "wandern", scale), "#ff5100");
+  assert.equal(colorFor("gps", { ...point, sats: 4 }, { ...point, sats: 18 }, "wandern", scale), "#fad830");
+  assert.equal(colorFor("gps", { ...point, sats: 18 }, { ...point, sats: 18 }, "wandern", scale), "#79db09");
+  assert.equal(colorFor("gps", { ...point, sats: null }, { ...point, sats: null }, "wandern", scale), FADED);
+  assert.equal(scale.maxLabel, "18 Satelliten");
+});
+
+test("keeps slope and pace thresholds fixed and marks unknown values", () => {
+  const point: Point = { i: 0, lat: 47, lon: 8, alt: 500, sats: 10, speed: 1, t: 0 };
+  const segment: Segment = { id: "on", a: 0, b: 1, name: "Active", kind: "wandern", on: true };
+  const slopeScale = colorScaleFor("steil", [], {}, [])!;
+  const paceScale = colorScaleFor("pace", [], {}, [])!;
+  assert.equal(slopeScale.maxLabel, "30 %+");
+  assert.equal(paceScale.minLabel, "≤15");
+  assert.equal(paceScale.maxLabel, "≥25 min/km");
+  assert.equal(colorFor("steil", point, { ...point, lat: 47.001 }, segment.kind, slopeScale), "#de98c1");
+  assert.equal(colorFor("steil", point, { ...point, lat: 47.001, alt: null }, segment.kind, slopeScale), FADED);
+  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 10 * 60_000 }, segment.kind, paceScale), "#ff5100");
+  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 30 * 60_000 }, segment.kind, paceScale), "#79db09");
 });
 
 test("marks invalid points without removing any", () => {

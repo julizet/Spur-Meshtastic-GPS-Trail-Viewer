@@ -4,7 +4,7 @@ import L from "leaflet";
 import { useEffect, useReducer, useRef, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { includedPositions } from "@/lib/clean";
-import { colorFor, FADED, INK } from "@/lib/colors";
+import { colorFor, FADED, INK, type ColorScale } from "@/lib/colors";
 import { fmtInt } from "@/lib/geo";
 import type { ColorMode, Excluded, Photo, Point, Segment } from "@/lib/types";
 
@@ -20,6 +20,7 @@ type Props = {
   excluded: Excluded;
   segments: Segment[];
   colorMode: ColorMode;
+  colorScale: ColorScale | null;
   showInactive: boolean;
   showExcluded: boolean;
   showDots: boolean;
@@ -168,9 +169,7 @@ export default function MapView(props: Props) {
     const g = groups.current?.route;
     if (!g) return;
     g.clearLayers();
-    const { points, excluded, segments, colorMode, showInactive } = props;
-    const alts = includedPositions(points, excluded).map((k) => points[k].alt).filter((a): a is number => a != null);
-    const altRange: [number, number] = alts.length ? [Math.min(...alts), Math.max(...alts)] : [0, 1];
+    const { points, excluded, segments, colorMode, colorScale, showInactive } = props;
     const ll = (k: number): L.LatLngTuple => [points[k].lat, points[k].lon];
 
     for (const s of segments) {
@@ -190,12 +189,12 @@ export default function MapView(props: Props) {
         }).addTo(g);
       } else {
         for (let j = 1; j < v.length; j++) {
-          const c = colorFor(colorMode, points[v[j - 1]], points[v[j]], s.kind, altRange);
+          const c = colorFor(colorMode, points[v[j - 1]], points[v[j]], s.kind, colorScale);
           L.polyline([ll(v[j - 1]), ll(v[j])], { color: c, weight: 4, opacity: 1, interactive: false, lineCap: "round" }).addTo(g);
         }
       }
     }
-  }, [props.points, props.excluded, props.segments, props.colorMode, props.showInactive]);
+  }, [props.points, props.excluded, props.segments, props.colorMode, props.colorScale, props.showInactive]);
 
   // Markers: boundaries, start/end, peak, dots, hover, selection, highlight.
   useEffect(() => {

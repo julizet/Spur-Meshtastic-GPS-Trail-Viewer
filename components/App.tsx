@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clean, includedPositions } from "@/lib/clean";
+import { colorScaleFor } from "@/lib/colors";
 import { fmtClock, fmtDate } from "@/lib/geo";
 import { matchPhoto } from "@/lib/match";
 import { parseExport, ParseError } from "@/lib/parse";
@@ -444,6 +445,10 @@ export default function App({ shared }: { shared?: SharedInit }) {
     ? `Auswahl ${fmtClock(data.points[focus[0]].t)} bis ${fmtClock(data.points[focus[1]].t)}`
     : null;
   const shareLabel = !link ? "Teilen" : dirty ? "Link aktualisieren" : "Link kopieren";
+  const colorScale = useMemo(
+    () => data ? colorScaleFor(colorMode, data.points, data.excluded, data.segments) : null,
+    [colorMode, data],
+  );
 
   return (
     <main>
@@ -453,6 +458,7 @@ export default function App({ shared }: { shared?: SharedInit }) {
         excluded={data?.excluded ?? {}}
         segments={data?.segments ?? []}
         colorMode={colorMode}
+        colorScale={colorScale}
         showInactive={isOwner}
         showExcluded={isOwner && showExcluded}
         showDots={isOwner && editing}
@@ -522,7 +528,7 @@ export default function App({ shared }: { shared?: SharedInit }) {
             onAddPhotos={() => requestPhotos(null)}
           />
         )}
-        {data && derived && <MapModeControl mode={colorMode} onChange={setColorMode} />}
+        {data && derived && <MapModeControl mode={colorMode} scale={colorScale} onChange={setColorMode} />}
       </div>
 
       {data && derived && (
