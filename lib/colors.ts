@@ -8,6 +8,7 @@ export const FADED = "#8f9994";
 export const TRAIL = { gelb: "#dcae0a", rot: "#c62f2a", blau: "#2a61ae" };
 const SIGNAL = { low: "#ff5100", middle: "#fad830", high : "#79db09" };
 const SLOPE = { low: "#de98c1", middle: "#dd3497", high: "#49006a" };
+const PACE_COLORS = [SIGNAL.high, SIGNAL.middle, SIGNAL.low];
 
 export type ColorScale = { colors: string[]; min: number; max: number; minLabel: string; maxLabel: string };
 
@@ -35,7 +36,7 @@ export function colorScaleFor(
     return { colors: [SLOPE.low, SLOPE.middle, SLOPE.high], min: 0, max: 30, minLabel: "0 %", maxLabel: "30 %+" };
   }
   if (mode === "pace") {
-    return { colors: [SIGNAL.low, SIGNAL.middle, SIGNAL.high], min: 15, max: 25, minLabel: "≤15", maxLabel: "≥25 min/km" };
+    return { colors: PACE_COLORS, min: 15, max: 25, minLabel: "≤15", maxLabel: "≥25 min/km" };
   }
 
   const positions = new Set<number>();
@@ -101,7 +102,7 @@ export function colorFor(
     const pace = paceBetween(p, q);
     if (pace == null) return FADED;
     const t = position(pace, scale);
-    return t < 0.5 ? mix(SIGNAL.low, SIGNAL.middle, t * 2) : mix(SIGNAL.middle, SIGNAL.high, (t - 0.5) * 2);
+    return t < 0.5 ? mix(SIGNAL.high, SIGNAL.middle, t * 2) : mix(SIGNAL.middle, SIGNAL.low, (t - 0.5) * 2);
   }
   const satellites = average([p.sats, q.sats]);
   if (satellites == null) return FADED;

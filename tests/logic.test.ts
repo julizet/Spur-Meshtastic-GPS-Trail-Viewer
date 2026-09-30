@@ -64,18 +64,21 @@ test("maps GPS colors across the actual range using endpoint averages", () => {
   assert.equal(scale.maxLabel, "18 Satelliten");
 });
 
-test("keeps slope and pace thresholds fixed and marks unknown values", () => {
+test("keeps slope and pace bounds fixed and marks unknown values", () => {
   const point: Point = { i: 0, lat: 47, lon: 8, alt: 500, sats: 10, speed: 1, t: 0 };
-  const segment: Segment = { id: "on", a: 0, b: 1, name: "Active", kind: "wandern", on: true };
   const slopeScale = colorScaleFor("steil", [], {}, [])!;
   const paceScale = colorScaleFor("pace", [], {}, [])!;
   assert.equal(slopeScale.maxLabel, "30 %+");
+  assert.equal(paceScale.min, 15);
+  assert.equal(paceScale.max, 25);
   assert.equal(paceScale.minLabel, "≤15");
   assert.equal(paceScale.maxLabel, "≥25 min/km");
-  assert.equal(colorFor("steil", point, { ...point, lat: 47.001 }, segment.kind, slopeScale), "#de98c1");
-  assert.equal(colorFor("steil", point, { ...point, lat: 47.001, alt: null }, segment.kind, slopeScale), FADED);
-  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 10 * 60_000 }, segment.kind, paceScale), "#ff5100");
-  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 30 * 60_000 }, segment.kind, paceScale), "#79db09");
+  assert.deepEqual(paceScale.colors, ["#79db09", "#fad830", "#ff5100"]);
+  assert.equal(colorFor("steil", point, { ...point, lat: 47.001 }, "wandern", slopeScale), "#de98c1");
+  assert.equal(colorFor("steil", point, { ...point, lat: 47.001, alt: null }, "wandern", slopeScale), FADED);
+  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 10 * 60_000 }, "wandern", paceScale), "#79db09");
+  assert.equal(colorFor("pace", point, { ...point, lat: 47.01, t: 30 * 60_000 }, "wandern", paceScale), "#ff5100");
+  assert.equal(colorFor("pace", point, { ...point, t: null }, "wandern", paceScale), FADED);
 });
 
 test("marks invalid points without removing any", () => {
